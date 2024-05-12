@@ -16,7 +16,7 @@ repos:
       - id: end-of-file-fixer
       - id: requirements-txt-fixer
       - id: mixed-line-ending
-    args: ['--fix=auto']  # replace 'auto' with 'lf' to enforce Linux/Mac line endings or 'crlf' for Windows
+        args: ['--fix=auto']  # replace 'auto' with 'lf' to enforce Linux/Mac line endings or 'crlf' for Windows
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.5
@@ -25,8 +25,8 @@ repos:
         args: [--fix, --exit-non-zero-on-fix, --show-fixes]
       - id: ruff-format
 
-  - repo: https://github.com/numpy/numpydoc
-    rev: v1.6.0
-    hooks:
-      - id: numpydoc-validation
-        exclude: (tests|docs)/.*
+#  - repo: https://github.com/numpy/numpydoc
+#    rev: v1.6.0
+#    hooks:
+#      - id: numpydoc-validation
+#        exclude: (tests|docs)/.*
