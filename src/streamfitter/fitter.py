@@ -97,7 +97,9 @@ class RunningStats(object):
         return result
 
 
-def _calculate_monte_carlo_error(fitter, xs, fits, error_method, noise_level, num_cycles):
+def _calculate_monte_carlo_error(
+    fitter, xs, fits, error_method, noise_level, num_cycles
+):
     mc_fitted_params = {}
     for row_count, (atom_key, fit) in enumerate(fits.items()):
         fitted_params = [value.value for value in fit.params.values()]
@@ -120,8 +122,13 @@ def _calculate_monte_carlo_error(fitter, xs, fits, error_method, noise_level, nu
                 for name, value in fit.params.items():
                     averagers[name].add(value.value)
 
-        errors = {f'{name}_mc_error': averager.sterr() for name, averager in averagers.items()}
-        mc_fitted_params[atom_key] = {**errors, '%mc_failures': (num_cycles - mc_calculations) / num_cycles * 100}
+        errors = {
+            f"{name}_mc_error": averager.sterr() for name, averager in averagers.items()
+        }
+        mc_fitted_params[atom_key] = {
+            **errors,
+            "%mc_failures": (num_cycles - mc_calculations) / num_cycles * 100,
+        }
 
     return mc_fitted_params
 
@@ -129,27 +136,29 @@ def _calculate_monte_carlo_error(fitter, xs, fits, error_method, noise_level, nu
 def td_format(td_object):
     seconds = int(td_object.total_seconds())
     periods = [
-        ('year', 60 * 60 * 24 * 365),
-        ('month', 60 * 60 * 24 * 30),
-        ('day', 60 * 60 * 24),
-        ('hour', 60 * 60),
-        ('minute', 60),
-        ('second', 1),
+        ("year", 60 * 60 * 24 * 365),
+        ("month", 60 * 60 * 24 * 30),
+        ("day", 60 * 60 * 24),
+        ("hour", 60 * 60),
+        ("minute", 60),
+        ("second", 1),
     ]
 
     strings = []
     for period_name, period_seconds in periods:
         if seconds > period_seconds:
             period_value, seconds = divmod(seconds, period_seconds)
-            has_s = 's' if period_value > 1 else ''
-            strings.append('%s %s%s' % (period_value, period_name, has_s))
+            has_s = "s" if period_value > 1 else ""
+            strings.append("%s %s%s" % (period_value, period_name, has_s))
 
-    return ', '.join(strings)
+    return ", ".join(strings)
 
 
 class NoNEFPipeslinesError(Exception):
     def __init__(self):
-        super().__init__('nef_pipelines was not imported, stream fitter depends on NEF-Pipelines, did you install it?')
+        super().__init__(
+            "nef_pipelines was not imported, stream fitter depends on NEF-Pipelines, did you install it?"
+        )
 
 
 def fitter(
@@ -168,38 +177,41 @@ def fitter(
     numpy_random.seed(seed)
 
     for frame in series_frames:
-        series_experiment_loop = get_loop(frame, 'nef_series_experiment')
+        series_experiment_loop = get_loop(frame, "nef_series_experiment")
 
         _exit_if_no_series_lists_selected(frame, series_experiment_loop)
 
-        spectra_by_times_and_indices = _get_spectra_by_series_variable(entry, series_experiment_loop)
+        spectra_by_times_and_indices = _get_spectra_by_series_variable(
+            entry, series_experiment_loop
+        )
 
         _exit_if_spectra_are_missing(spectra_by_times_and_indices, frame.name)
 
         peaks_by_times_and_indices = {
-            key: frame_to_peaks(spectrum_frame) for key, spectrum_frame in spectra_by_times_and_indices.items()
+            key: frame_to_peaks(spectrum_frame)
+            for key, spectrum_frame in spectra_by_times_and_indices.items()
         }
 
         atoms_and_values = _get_atoms_and_values(peaks_by_times_and_indices, data_type)
 
-        replicate_noise_level, stderr, num_replicates = _get_noise_from_duplicated_values(
-            peaks_by_times_and_indices, data_type
+        replicate_noise_level, stderr, num_replicates = (
+            _get_noise_from_duplicated_values(peaks_by_times_and_indices, data_type)
         )
 
-        noise_source = 'cli' if noise_level else 'replicates'
+        noise_source = "cli" if noise_level else "replicates"
         noise_level = noise_level or replicate_noise_level
 
         msg = [
-            ['number of cpus', multiprocessing.cpu_count()],
-            ['', ''],
-            ['random seed', seed],
-            ['', ''],
-            ['noise estimate [σ / std]', f'{noise_level:.3}'],
-            ['error in noise estimate', f'{stderr*100:7.3}%'],
-            ['source of noise estimate', noise_source],
-            ['number of replicates', num_replicates],
+            ["number of cpus", multiprocessing.cpu_count()],
+            ["", ""],
+            ["random seed", seed],
+            ["", ""],
+            ["noise estimate [σ / std]", f"{noise_level:.3}"],
+            ["error in noise estimate", f"{stderr*100:7.3}%"],
+            ["source of noise estimate", noise_source],
+            ["number of replicates", num_replicates],
         ]
-        print(tabulate(msg, tablefmt='plain'))
+        print(tabulate(msg, tablefmt="plain"))
         print()
 
         fitter = Relaxation2PointFitter()
@@ -209,11 +221,13 @@ def fitter(
 
         xs = _get_series_variables_array(series_experiment_loop)
 
-        monte_carlo_errors = _calculate_monte_carlo_error(fitter, xs, fits, error_method, noise_level, cycles)
+        monte_carlo_errors = _calculate_monte_carlo_error(
+            fitter, xs, fits, error_method, noise_level, cycles
+        )
         end_time = time.time()
 
         time_delta = timedelta(seconds=end_time - start_time)
-        print(f'fitting took {td_format(time_delta)}')
+        print(f"fitting took {td_format(time_delta)}")
         print()
 
         table = []
@@ -230,37 +244,48 @@ def fitter(
                         if residue:
                             if i > 1:
                                 continue
-                            headings.append('residue')
+                            headings.append("residue")
                         else:
-                            headings.append((f'atom-{i}'))
+                            headings.append((f"atom-{i}"))
                     else:
-                        headings.extend((f'chn-{i}', f'seq-{i}', f'res-{i}', f'atm-{i}'))
+                        headings.extend(
+                            (f"chn-{i}", f"seq-{i}", f"res-{i}", f"atm-{i}")
+                        )
                 residue = atom.residue
 
                 if compact:
                     if residue:
                         if i > 1:
                             continue
-                        row.append(f'{residue.sequence_code}')
+                        row.append(f"{residue.sequence_code}")
                     else:
                         row.append(
-                            f'#{residue.chain_code}:{residue.sequence_code}[{residue.residue_name}]@{atom.atom_name}'
+                            f"#{residue.chain_code}:{residue.sequence_code}[{residue.residue_name}]@{atom.atom_name}"
                         )
                 else:
-                    row.extend([residue.chain_code, residue.sequence_code, residue.residue_name, atom.atom_name])
+                    row.extend(
+                        [
+                            residue.chain_code,
+                            residue.sequence_code,
+                            residue.residue_name,
+                            atom.atom_name,
+                        ]
+                    )
 
             for parameter in fit.params:
                 if row_count == 0:
-                    headings.extend([f'{parameter}', f'{parameter} %err'])
+                    headings.extend([f"{parameter}", f"{parameter} %err"])
 
                 row.append(fit.params[parameter].value)
-                row.append(fit.params[parameter].stderr / fit.params[parameter].value * 100)
+                row.append(
+                    fit.params[parameter].stderr / fit.params[parameter].value * 100
+                )
             if row_count == 0:
-                headings.extend(['chi²', 'OK', 'cycls'])
+                headings.extend(["chi²", "OK", "cycls"])
             chi2 = abs(fit.residual.var() / noise_level**2)
-            row.append(f'{chi2:7.3}')
+            row.append(f"{chi2:7.3}")
             if compact:
-                success = '✓' if fit.success else '✕'
+                success = "✓" if fit.success else "✕"
             else:
                 success = fit.success
 
@@ -268,16 +293,15 @@ def fitter(
             row.append(fit.nfev)
             if row_count == 0:
                 for name in monte_carlo_errors[atom_key]:
-                    if name.endswith('_mc_error'):
-                        name = name.removesuffix('_mc_error')
-                        headings.append(f'{name} %err [mc]')
-                    elif name == '%mc_failures':
-                        headings.append('%fails [mc]')
+                    if name.endswith("_mc_error"):
+                        name = name.removesuffix("_mc_error")
+                        headings.append(f"{name} %err [mc]")
+                    elif name == "%mc_failures":
+                        headings.append("%fails [mc]")
 
             for name, mc_value in monte_carlo_errors[atom_key].items():
-                if name.endswith('_mc_error'):
-                    # row.append(mc_value)
-                    value_name = name.removesuffix('_mc_error')
+                if name.endswith("_mc_error"):
+                    value_name = name.removesuffix("_mc_error")
                     value = fit.params[value_name].value
                     value_mc_percentage_error = mc_value / value * 100
                     if row_count == 0:
@@ -285,9 +309,8 @@ def fitter(
                     row.append(value_mc_percentage_error)
                 else:
                     row.append(mc_value)
-            # print(fit_report(fit))
 
-        replacements = {'amplitude': 'I₀', 'time_constant': 'τ'}
+        replacements = {"amplitude": "I₀", "time_constant": "τ"}
 
         for i, heading in enumerate(headings):
             for key, value in replacements.items():
@@ -299,7 +322,7 @@ def fitter(
 
 def _import_nef_pipelines_or_raise():
     try:
-        import nef_pipelines  # noqa: F401
+        import nef_pipelines
     except ImportError:
         raise NoNEFPipeslinesError()
 
@@ -307,7 +330,12 @@ def _import_nef_pipelines_or_raise():
 def _get_series_variables_array(series_experiment_loop):
     from nef_pipelines.lib.nef_lib import loop_row_namespace_iter
 
-    return array([row.series_variable for row in loop_row_namespace_iter(series_experiment_loop, convert=True)])
+    return array(
+        [
+            row.series_variable
+            for row in loop_row_namespace_iter(series_experiment_loop, convert=True)
+        ]
+    )
 
 
 def _fit_series(atoms_and_values, fitter):
@@ -323,7 +351,7 @@ def _fit_series(atoms_and_values, fitter):
         for key, value in estimated_parameters_dict.items():
             params.add(key, value=value)
 
-        minimizer = Minimizer(func, params, fcn_args=(xs,), fcn_kws={'data': ys})
+        minimizer = Minimizer(func, params, fcn_args=(xs,), fcn_kws={"data": ys})
         out = minimizer.leastsq(Dfun=jacobian, col_deriv=1)
 
         fits[atom_key] = out
@@ -380,7 +408,7 @@ class Relaxation2PointFitter:
 
         time_constant = -log(y / amplitude) / x
 
-        result = {'amplitude': amplitude, 'time_constant': time_constant.real}
+        result = {"amplitude": amplitude, "time_constant": time_constant.real}
 
         return result
 
@@ -407,14 +435,18 @@ def _get_atoms_and_values(peaks_by_times_and_indices, data_type: DataType) -> Di
     return atoms_to_values
 
 
-def _get_noise_from_duplicated_values(peaks_by_times_and_indices, data_type: DataType) -> float:
+def _get_noise_from_duplicated_values(
+    peaks_by_times_and_indices, data_type: DataType
+) -> float:
     peak_list_keys_by_times = {}
     for key, peak_list in peaks_by_times_and_indices.items():
         _, value, _ = key
         peak_list_keys_by_times.setdefault(value, []).append(key)
 
     duplicated_peak_list_keys = [
-        peak_list_keys for peak_list_keys in peak_list_keys_by_times.values() if len(peak_list_keys) > 1
+        peak_list_keys
+        for peak_list_keys in peak_list_keys_by_times.values()
+        if len(peak_list_keys) > 1
     ]
 
     differences = []
@@ -450,7 +482,9 @@ def _get_spectra_by_series_variable(entry, series_experiment_loop):
     from nef_pipelines.lib.nef_lib import loop_row_namespace_iter
 
     spectra_by_times = {}
-    for i, row in enumerate(loop_row_namespace_iter(series_experiment_loop, convert=True), start=1):
+    for i, row in enumerate(
+        loop_row_namespace_iter(series_experiment_loop, convert=True), start=1
+    ):
         spectrum_frame_name = row.nmr_spectrum_id
         series_variable = row.series_variable
 
@@ -464,7 +498,7 @@ def _get_spectra_by_series_variable(entry, series_experiment_loop):
 
 def _exit_if_no_series_lists_selected(frame, series_experiment_loop):
     if not series_experiment_loop:
-        msg = f'no nef series experiment loop found in frame {frame.name}'
+        msg = f"no nef series experiment loop found in frame {frame.name}"
         exit_error(msg)
 
 
@@ -478,7 +512,11 @@ def get_loop(frame, loop_name):
 
 
 def _exit_if_spectra_are_missing(spectra_by_times_and_indices, series_name):
-    for (_, _, spectrum_frame_name), spectrum_frame in spectra_by_times_and_indices.items():
+    for (
+        _,
+        _,
+        spectrum_frame_name,
+    ), spectrum_frame in spectra_by_times_and_indices.items():
         if not spectrum_frame:
-            msg = f'no spectrum frame found for series {series_name} for spectrum {spectrum_frame_name}'
+            msg = f"no spectrum frame found for series {series_name} for spectrum {spectrum_frame_name}"
             exit_error(msg)
