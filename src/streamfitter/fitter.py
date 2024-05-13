@@ -7,6 +7,7 @@ from enum import StrEnum, auto
 from itertools import combinations
 from typing import List, Dict
 
+from nef_pipelines.lib.shift_lib import IntensityMeasurementType
 from nef_pipelines.lib.util import exit_error
 from numpy.random import normal
 
@@ -30,11 +31,6 @@ class ErrorPropogation(StrEnum):
     PROPOGATION = auto()
     JACKNIFE = auto()
     BOOTSTRAP = auto()
-
-
-class DataType(StrEnum):
-    HEIGHT = auto()
-    VOLUME = auto()
 
 
 @dataclass
@@ -161,7 +157,7 @@ def fitter(
     error_method: ErrorPropogation,
     cycles: int,
     noise_level,
-    data_type: DataType,
+    intensity_measurement_type: IntensityMeasurementType,
     seed: int,
 ) -> Dict:
     _import_nef_pipelines_or_raise()
@@ -183,10 +179,10 @@ def fitter(
             key: frame_to_peaks(spectrum_frame) for key, spectrum_frame in spectra_by_times_and_indices.items()
         }
 
-        atoms_and_values = _get_atoms_and_values(peaks_by_times_and_indices, data_type)
+        atoms_and_values = _get_atoms_and_values(peaks_by_times_and_indices, intensity_measurement_type)
 
         replicate_noise_level, stderr, num_replicates = _get_noise_from_duplicated_values(
-            peaks_by_times_and_indices, data_type
+            peaks_by_times_and_indices, intensity_measurement_type
         )
 
         noise_source = 'cli' if noise_level else 'replicates'
@@ -401,21 +397,21 @@ class Relaxation2PointFitter:
         return list(signature(cls.function).parameters.keys())[:-1]
 
 
-def _get_atoms_and_values(peaks_by_times_and_indices, data_type: DataType) -> Dict:
+def _get_atoms_and_values(peaks_by_times_and_indices, data_type: IntensityMeasurementType) -> Dict:
     atoms_to_values = {}
     for (index, x_value, spectrum_name), peaks in peaks_by_times_and_indices.items():
         for peak in peaks:
             atoms = tuple(sorted([shift.atom for shift in peak.shifts]))
             x_and_y = atoms_to_values.setdefault(atoms, [[], []])
 
-            y_value = peak.height if data_type == DataType.HEIGHT else peak.volume
+            y_value = peak.height if data_type == IntensityMeasurementType.HEIGHT else peak.volume
             x_and_y[0].append(x_value)
             x_and_y[1].append(y_value)
 
     return atoms_to_values
 
 
-def _get_noise_from_duplicated_values(peaks_by_times_and_indices, data_type: DataType) -> float:
+def _get_noise_from_duplicated_values(peaks_by_times_and_indices, data_type: IntensityMeasurementType) -> float:
     peak_list_keys_by_times = {}
     for key, peak_list in peaks_by_times_and_indices.items():
         _, value, _ = key
@@ -431,9 +427,9 @@ def _get_noise_from_duplicated_values(peaks_by_times_and_indices, data_type: Dat
             peak_pairs = {}
             for key in combination:
                 for peak in peaks_by_times_and_indices[key]:
-                    if data_type == DataType.HEIGHT:
+                    if data_type == IntensityMeasurementType.HEIGHT:
                         value = peak.height
-                    elif data_type == DataType.VOLUME:
+                    elif data_type == IntensityMeasurementType.VOLUME:
                         value = peak.volume
                     key = tuple(sorted([shift.atom for shift in peak.shifts]))
                     peak_pairs.setdefault(key, []).append(value)
