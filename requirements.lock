@@ -49,16 +49,20 @@ iniconfig==2.0.0
     # via pytest
 jax==0.4.28
     # via streamfitter
+jaxlib==0.4.28
+    # via streamfitter
 lmfit==1.3.1
     # via streamfitter
 ml-dtypes==0.4.0
     # via jax
+    # via jaxlib
 mmcif-pdbx==2.0.1
     # via nef-pipelines
 nef-pipelines==0.1.65
     # via streamfitter
 numpy==1.26.4
     # via jax
+    # via jaxlib
     # via lmfit
     # via ml-dtypes
     # via opt-einsum
@@ -97,6 +101,7 @@ runstats==2.0.0
     # via streamfitter
 scipy==1.13.0
     # via jax
+    # via jaxlib
     # via lmfit
 six==1.16.0
     # via python-dateutil
