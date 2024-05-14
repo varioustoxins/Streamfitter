@@ -1,6 +1,7 @@
 import math
 import multiprocessing
 import time
+from collections import Counter
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import StrEnum, auto
@@ -93,28 +94,58 @@ class RunningStats(object):
         return result
 
 
-def _calculate_monte_carlo_error(fitter, xs, fits, error_method, noise_level, num_cycles):
+def _calculate_monte_carlo_error(fitter, xs, fits, error_method, noise_level, num_cycles, validate_mc=False):
+    xs_as_floats = [float(x) for x in xs]
+    if validate_mc:
+        replicate_xs = [value for value, count in Counter(xs_as_floats).items() if count > 1]
+        replicate_averages = RunningStats()
+
     mc_fitted_params = {}
+    mc_value_stats = {}
+    mc_fitted_param_values = {}
     for row_count, (atom_key, fit) in enumerate(fits.items()):
+        value_stats = {(i, value): RunningStats() for i, value in enumerate(xs_as_floats)}
+        mc_value_stats[atom_key] = value_stats
+        mc_fitted_param_list = []
+        mc_fitted_param_values[atom_key] = mc_fitted_param_list
+
         fitted_params = [value.value for value in fit.params.values()]
 
         back_calculated = fitter.function(*fitted_params, xs)
 
         mc_keys_and_values = {}
         for i in range(num_cycles):
-            key = atom_key, i
+            fit_key = atom_key, i
             mc_data = back_calculated + normal(0, noise_level, len(xs))
 
-            mc_keys_and_values[key] = xs, mc_data
+            if validate_mc:
+                replicate_values = {}
+                for point, data in zip(xs_as_floats, mc_data):
+                    if point in replicate_xs:
+                        replicate_values.setdefault(point, []).append(float(data))
+                for replicate in replicate_values.values():
+                    for combination in combinations(replicate, 2):
+                        replicate_averages.add(combination[0] - combination[1])
+
+            mc_keys_and_values[fit_key] = xs, mc_data
 
         fits = _fit_series(mc_keys_and_values, fitter)
+
         averagers = {name: RunningStats() for name in fitter.params}
         mc_calculations = 0
-        for key, fit in fits.items():
+        for fit_key, fit in fits.items():
             if fit.success:
                 mc_calculations += 1
+
+                mc_fitted_param_list.append(fit.params)
+
                 for name, value in fit.params.items():
                     averagers[name].add(value.value)
+
+                mc_fitted_params_for_backcalc = [value.value for value in fit.params.values()]
+                mc_back_calculated = fitter.function(*mc_fitted_params_for_backcalc, xs)
+                for back_calculated, averager in zip(mc_back_calculated, value_stats.values()):
+                    averager.add(back_calculated)
 
         errors = {f'{name}_mc_error': averager.sterr() for name, averager in averagers.items()}
         mc_fitted_params[atom_key] = {
@@ -122,7 +153,12 @@ def _calculate_monte_carlo_error(fitter, xs, fits, error_method, noise_level, nu
             '%mc_failures': (num_cycles - mc_calculations) / num_cycles * 100,
         }
 
-    return mc_fitted_params
+    if validate_mc:
+        print(
+            f'mc mean: {replicate_averages.mean()} mc stdev: {replicate_averages.stdev()}  [from {replicate_averages.num_values()} values]'
+        )
+
+    return mc_fitted_params, mc_value_stats, mc_fitted_param_values
 
 
 def td_format(td_object):
@@ -203,12 +239,15 @@ def fitter(
 
         fitter = Relaxation2PointFitter()
 
+        # TODO: this could be a context manager
         start_time = time.time()
         fits = _fit_series(atoms_and_values, fitter)
 
         xs = _get_series_variables_array(series_experiment_loop)
 
-        monte_carlo_errors = _calculate_monte_carlo_error(fitter, xs, fits, error_method, noise_level, cycles)
+        monte_carlo_errors, monte_carlo_value_stats, monte_carlo_param_values = _calculate_monte_carlo_error(
+            fitter, xs, fits, error_method, noise_level, cycles
+        )
         end_time = time.time()
 
         time_delta = timedelta(seconds=end_time - start_time)
