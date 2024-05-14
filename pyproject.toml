@@ -1,6 +1,6 @@
 [project]
 name = "streamfitter"
-version = "0.1.0"
+version = "0.1.1"
 description = "Add your description here"
 authors = [
     { name = "varioustoxins", email = "garyt.and.sarahb@gmail.com" }
