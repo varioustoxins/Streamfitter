@@ -1,4 +1,3 @@
-import math
 import multiprocessing
 import time
 from collections import Counter
@@ -20,12 +19,15 @@ from jax.numpy import exp, where, log, array
 from numpy import random as numpy_random
 
 from lmfit import Minimizer, Parameters
+from lmfit import __version__ as lmfit_version
 from inspect import signature
 from jax import jacfwd
-
-from tabulate import tabulate
+from jax import __version__ as jax_version
+from numpy import __version__ as numpy_version
+from streamfitter import __version__ as streamfitter_version
 
 from classprop import classprop
+import math
 
 
 class ErrorPropogation(StrEnum):
@@ -202,14 +204,15 @@ def fitter(
 
     numpy_random.seed(seed)
 
-    for frame in series_frames:
-        series_experiment_loop = get_loop(frame, 'nef_series_experiment')
+    results = []
+    for series_frame in series_frames:
+        series_experiment_loop = get_loop(series_frame, 'nef_series_experiment')
 
-        _exit_if_no_series_lists_selected(frame, series_experiment_loop)
+        _exit_if_no_series_lists_selected(series_frame, series_experiment_loop)
 
         spectra_by_times_and_indices = _get_spectra_by_series_variable(entry, series_experiment_loop)
 
-        _exit_if_spectra_are_missing(spectra_by_times_and_indices, frame.name)
+        _exit_if_spectra_are_missing(spectra_by_times_and_indices, series_frame.name)
 
         peaks_by_times_and_indices = {
             key: frame_to_peaks(spectrum_frame) for key, spectrum_frame in spectra_by_times_and_indices.items()
@@ -223,19 +226,6 @@ def fitter(
 
         noise_source = 'cli' if noise_level else 'replicates'
         noise_level = noise_level or replicate_noise_level
-
-        msg = [
-            ['number of cpus', multiprocessing.cpu_count()],
-            ['', ''],
-            ['random seed', seed],
-            ['', ''],
-            ['noise estimate [σ / std]', f'{noise_level:.3}'],
-            ['error in noise estimate', f'{stderr*100:7.3}%'],
-            ['source of noise estimate', noise_source],
-            ['number of replicates', num_replicates],
-        ]
-        print(tabulate(msg, tablefmt='plain'))
-        print()
 
         fitter = Relaxation2PointFitter()
 
@@ -251,93 +241,60 @@ def fitter(
         end_time = time.time()
 
         time_delta = timedelta(seconds=end_time - start_time)
-        print(f'fitting took {td_format(time_delta)}')
-        print()
 
-        table = []
-        headings = []
+        versions_string = f'stream_fitter [{streamfitter_version}], lmfit [{lmfit_version}], jax[{jax_version}], numpy[{numpy_version}'
 
-        compact = True
-        residue = True
-        for row_count, (atom_key, fit) in enumerate(fits.items()):
-            row = []
-            table.append(row)
-            for i, atom in enumerate((atom_key), start=1):
-                if row_count == 0:
-                    if compact:
-                        if residue:
-                            if i > 1:
-                                continue
-                            headings.append('residue')
-                        else:
-                            headings.append((f'atom-{i}'))
-                    else:
-                        headings.extend((f'chn-{i}', f'seq-{i}', f'res-{i}', f'atm-{i}'))
-                residue = atom.residue
+        results.append(
+            {
+                'fits': fits,
+                'monte_carlo_errors': monte_carlo_errors,
+                'monte_carlo_value_stats': monte_carlo_value_stats,
+                'monte_carlo_param_values': monte_carlo_param_values,
+                'versions': versions_string,
+                'calculation_time': time_delta,
+                'number of cpus': multiprocessing.cpu_count(),
+                'random seed': seed,
+                'noise_level': noise_level,
+                'error in noise estimate': stderr,
+                'source of noise estimate': noise_source,
+                'number of replicates': num_replicates,
+            }
+        )
 
-                if compact:
-                    if residue:
-                        if i > 1:
-                            continue
-                        row.append(f'{residue.sequence_code}')
-                    else:
-                        row.append(
-                            f'#{residue.chain_code}:{residue.sequence_code}[{residue.residue_name}]@{atom.atom_name}'
-                        )
-                else:
-                    row.extend(
-                        [
-                            residue.chain_code,
-                            residue.sequence_code,
-                            residue.residue_name,
-                            atom.atom_name,
-                        ]
-                    )
+    return results
 
-            for parameter in fit.params:
-                if row_count == 0:
-                    headings.extend([f'{parameter}', f'{parameter} %err'])
 
-                row.append(fit.params[parameter].value)
-                row.append(fit.params[parameter].stderr / fit.params[parameter].value * 100)
-            if row_count == 0:
-                headings.extend(['chi²', 'OK', 'cycls'])
-            chi2 = abs(fit.residual.var() / noise_level**2)
-            row.append(f'{chi2:7.3}')
-            if compact:
-                success = '✓' if fit.success else '✕'
-            else:
-                success = fit.success
+def _get_noise_from_duplicated_values(peaks_by_times_and_indices, data_type: IntensityMeasurementType) -> float:
+    peak_list_keys_by_times = {}
+    for key, peak_list in peaks_by_times_and_indices.items():
+        _, value, _ = key
+        peak_list_keys_by_times.setdefault(value, []).append(key)
 
-            row.append(success)
-            row.append(fit.nfev)
-            if row_count == 0:
-                for name in monte_carlo_errors[atom_key]:
-                    if name.endswith('_mc_error'):
-                        name = name.removesuffix('_mc_error')
-                        headings.append(f'{name} %err [mc]')
-                    elif name == '%mc_failures':
-                        headings.append('%fails [mc]')
+    duplicated_peak_list_keys = [
+        peak_list_keys for peak_list_keys in peak_list_keys_by_times.values() if len(peak_list_keys) > 1
+    ]
 
-            for name, mc_value in monte_carlo_errors[atom_key].items():
-                if name.endswith('_mc_error'):
-                    value_name = name.removesuffix('_mc_error')
-                    value = fit.params[value_name].value
-                    value_mc_percentage_error = mc_value / value * 100
-                    if row_count == 0:
-                        headings.append(name)
-                    row.append(value_mc_percentage_error)
-                else:
-                    row.append(mc_value)
+    differences = []
+    for duplicated_peak_list_set in duplicated_peak_list_keys:
+        for combination in combinations(duplicated_peak_list_set, 2):
+            peak_pairs = {}
+            for key in combination:
+                for peak in peaks_by_times_and_indices[key]:
+                    if data_type == IntensityMeasurementType.HEIGHT:
+                        value = peak.height
+                    elif data_type == IntensityMeasurementType.VOLUME:
+                        value = peak.volume
+                    key = tuple(sorted([shift.atom for shift in peak.shifts]))
+                    peak_pairs.setdefault(key, []).append(value)
 
-        replacements = {'amplitude': 'I₀', 'time_constant': 'τ'}
+            for value_pair in peak_pairs.values():
+                if len(value_pair) == 2:
+                    differences.append(value_pair[0] - value_pair[1])
 
-        for i, heading in enumerate(headings):
-            for key, value in replacements.items():
-                headings[i] = headings[i].replace(key, value)
-        print(tabulate(table, headers=headings))
+    replicates_stdev = stdev(differences)
+    replicates_stderr = replicates_stdev / len(differences) ** 0.5
 
-    # return entry
+    return replicates_stdev, replicates_stderr / replicates_stdev, len(differences)
 
 
 def _import_nef_pipelines_or_raise():
@@ -448,45 +405,6 @@ def _get_atoms_and_values(peaks_by_times_and_indices, data_type: IntensityMeasur
             x_and_y[1].append(y_value)
 
     return atoms_to_values
-
-
-def _get_noise_from_duplicated_values(peaks_by_times_and_indices, data_type: IntensityMeasurementType) -> float:
-    peak_list_keys_by_times = {}
-    for key, peak_list in peaks_by_times_and_indices.items():
-        _, value, _ = key
-        peak_list_keys_by_times.setdefault(value, []).append(key)
-
-    duplicated_peak_list_keys = [
-        peak_list_keys for peak_list_keys in peak_list_keys_by_times.values() if len(peak_list_keys) > 1
-    ]
-
-    differences = []
-    for duplicated_peak_list_set in duplicated_peak_list_keys:
-        for combination in combinations(duplicated_peak_list_set, 2):
-            peak_pairs = {}
-            for key in combination:
-                for peak in peaks_by_times_and_indices[key]:
-                    if data_type == IntensityMeasurementType.HEIGHT:
-                        value = peak.height
-                    elif data_type == IntensityMeasurementType.VOLUME:
-                        value = peak.volume
-                    key = tuple(sorted([shift.atom for shift in peak.shifts]))
-                    peak_pairs.setdefault(key, []).append(value)
-
-            for value_pair in peak_pairs.values():
-                if len(value_pair) == 2:
-                    differences.append(value_pair[0] - value_pair[1])
-
-    replicates_stdev = stdev(differences)
-    replicates_stderr = replicates_stdev / len(differences) ** 0.5
-
-    return replicates_stdev, replicates_stderr / replicates_stdev, len(differences)
-
-    # replicated_peak_lists = [peak_lists for peak_lists in peak_lists_by_times.values() if len(peak_lists_by_times) > 1]
-    #
-    # print(len(replicated_peak_lists))
-
-    # print(peaks_by_times_and_indices.keys())
 
 
 def _get_spectra_by_series_variable(entry, series_experiment_loop):
