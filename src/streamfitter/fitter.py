@@ -2,7 +2,6 @@ import multiprocessing
 import time
 from dataclasses import dataclass
 from datetime import timedelta
-from enum import StrEnum, auto
 from itertools import combinations
 from typing import Dict
 
@@ -24,11 +23,7 @@ from streamfitter import __version__ as streamfitter_version
 from classprop import classprop
 import math
 
-
-class ErrorPropogation(StrEnum):
-    PROPOGATION = auto()
-    JACKNIFE = auto()
-    BOOTSTRAP = auto()
+from error_propogation import ErrorPropogation
 
 
 @dataclass
