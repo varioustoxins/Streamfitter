@@ -1,3 +1,6 @@
+## version 0.1.4
+- further changes to dependecies and build dependencies to avoid problems with installation
+
 ## version 0.1.3
 - now uses pynmrstar 3.3.3 to avoid problems installing cnmrstar
 
