@@ -1,3 +1,6 @@
+## version 0.1.3
+- now uses pynmrstar 3.3.3 to avoid problems installing cnmrstar
+
 ## version 0.1.2
 - add missing dependency on jaxlib
 
