@@ -13,7 +13,7 @@ dependencies = [
     "tabulate==0.8.9",
     "classprop>=0.1.1",
     "nef-pipelines",
-    "pynmrstar==3.3.3",
+    "pynmrstar==3.3.4",
     "jaxlib>=0.4.28",
 ]
 readme = "README.md"
