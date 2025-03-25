@@ -1,3 +1,6 @@
+## version 0.1.5
+- uppgrade to pynmrstar 3.3.4 to avoid installation problems
+
 ## version 0.1.4
 - further changes to dependecies and build dependencies to avoid problems with installation
 
