@@ -91,7 +91,7 @@ class RunningStats(object):
     def stdev(self):
         return math.sqrt(self.variance())
 
-    def sterr(self):
+    def stderr(self):
         if self.m_n != 0:
             result = self.stdev() / math.sqrt(self.m_n)
         else:
