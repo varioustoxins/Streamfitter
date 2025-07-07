@@ -39,13 +39,19 @@ class NoReplicatesException(StreamFitterException):
     ...
 
 
-class UnevenMatchedXYException(Exception):
+class UnevenMatchedXYException(StreamFitterException):
     ...
 
+
+class NoNEFPipeslinesException(StreamFitterException):
+    def __init__(self):
+        super().__init__('nef_pipelines was not imported, stream fitter depends on NEF-Pipelines, did you install it?')
 
 
 class NoSuchFitterException(StreamFitterException):
     ...
+
+
 @dataclass
 class PointAndValue:
     point: float
@@ -198,25 +204,26 @@ def td_format(td_object):
 
 
 # this should be build at runtime
-FITTER_EXPONENTIAL_DECAY_2_PAMETER = "exponential_fitter_2_parameter"
-FITTER_TWO_EXPONENTIAL_DECAYS_2_PAMETER_SHARED_RATE = "exponential_fitter_2_parameter_shared_rate"
+FITTER_EXPONENTIAL_DECAY_2_PAMETER = 'exponential_fitter_2_parameter'
+FITTER_TWO_EXPONENTIAL_DECAYS_2_PAMETER_SHARED_RATE = 'exponential_fitter_2_parameter_shared_rate'
 
 _FITTERS = {
     FITTER_EXPONENTIAL_DECAY_2_PAMETER: ExponentialDecay2ParameterFitter,
-    FITTER_TWO_EXPONENTIAL_DECAYS_2_PAMETER_SHARED_RATE: SharedRateExponentialDecay2ParameterFitter
+    FITTER_TWO_EXPONENTIAL_DECAYS_2_PAMETER_SHARED_RATE: SharedRateExponentialDecay2ParameterFitter,
 }
+
 
 def get_fitter_names():
     return set(*_FITTERS.values())
+
 
 def get_fitter(name):
     if name not in get_fitter_names():
         fitter_names = [f'{i}. {fitter_name}' for i, fitter_name in enumerate(get_fitter_names())]
         fitter_names = '\n'.join(fitter_names)
-        msg = \
-        f"""
+        msg = f"""
             the fitter called {name} can't be found, ther available fitters are:
-            
+
             {fitter_names}
         """
 
@@ -278,7 +285,7 @@ def _import_nef_pipelines_or_raise():
     try:
         import nef_pipelines  # noqa: F401
     except ImportError:
-        raise NoNEFPipeslinesError()
+        raise NoNEFPipeslinesException()
 
 
 def _get_series_variables_array(id_xy_data):
