@@ -20,6 +20,8 @@ from streamfitter import __version__ as streamfitter_version
 
 import math
 
+from .ExponentialDecay2Parameter import ExponentialDecay2ParameterFitter
+from .SharedRateExponential2Parameter import SharedRateExponentialDecay2ParameterFitter
 from .error_propogation import ErrorPropogation
 
 STREAMFITTER_DEFAULT_SEED = 42
