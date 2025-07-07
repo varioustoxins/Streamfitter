@@ -1,6 +1,6 @@
 [project]
 name = "streamfitter"
-version = "0.1.6"
+version = "0.1.7"
 description = "A program for fitting functions and calculating montecarlo based errors"
 authors = [
     { name = "varioustoxins", email = "garyt.and.sarahb@gmail.com" }
