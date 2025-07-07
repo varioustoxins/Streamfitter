@@ -196,6 +196,7 @@ class NoNEFPipeslinesError(Exception):
 
 
 def fit(
+    fitter,
     id_xy_data,
     error_method: ErrorPropogation,
     cycles: int,
@@ -212,8 +213,6 @@ def fit(
 
     noise_source = 'cli' if noise_level else 'replicates'
     noise_level = noise_level or replicate_noise_level
-
-    fitter = Relaxation2PointFitter()
 
     # TODO: this could be a context manager
     start_time = time.time()
