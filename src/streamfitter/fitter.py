@@ -7,37 +7,39 @@ from typing import Dict
 
 from numpy.random import normal
 
-from jax.numpy import exp, where, log, array
+from jax.numpy import array
 from numpy import random as numpy_random
 
 from lmfit import Minimizer, Parameters
 from lmfit import __version__ as lmfit_version
-from inspect import signature
-from jax import jacfwd
 from jax import __version__ as jax_version
 from numpy import __version__ as numpy_version
 
 from nef_pipelines.tools.fit.fit_lib import _get_noise_from_duplicated_values
 from streamfitter import __version__ as streamfitter_version
 
-from classprop import classprop
 import math
 
 from error_propogation import ErrorPropogation
 
 STREAMFITTER_DEFAULT_SEED = 42
 
+
 class StreamFitterException(Exception):
     ...
+
 
 class WrongNumberOfParamsException(StreamFitterException):
     ...
 
+
 class NoReplicatesException(StreamFitterException):
     ...
 
+
 class UnevenMatchedXYException(Exception):
     ...
+
 
 @dataclass
 class PointAndValue:
@@ -138,7 +140,7 @@ def _calculate_monte_carlo_error(fitter, id_xy_data, fits, error_method, noise_l
 
         fits, estimates = _fit_series(mc_keys_and_values, fitter)
 
-        averagers = {name: RunningStats() for name in fitter.params}
+        averagers = {name: RunningStats() for name in fitter.params()}
         mc_calculations = 0
         for fit_key, fit in fits.items():
             if fit.success:
@@ -196,12 +198,7 @@ class NoNEFPipeslinesError(Exception):
 
 
 def fit(
-    fitter,
-    id_xy_data,
-    error_method: ErrorPropogation,
-    cycles: int,
-    noise_level,
-    seed: int = STREAMFITTER_DEFAULT_SEED
+    fitter, id_xy_data, error_method: ErrorPropogation, cycles: int, noise_level, seed: int = STREAMFITTER_DEFAULT_SEED
 ) -> Dict:
     _import_nef_pipelines_or_raise()
 
@@ -261,8 +258,8 @@ def _get_series_variables_array(id_xy_data):
 
 
 def _fit_series(ids_and_values, fitter):
-    func = FunctionWrapper(fitter.function)
-    jacobian = JacobianWrapper(fitter.function)
+    func = fitter.get_wrapped_function()
+    jacobian = fitter.get_wrapped_jacobian()
 
     fits = {}
     estimates = {}
