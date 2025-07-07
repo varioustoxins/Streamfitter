@@ -27,6 +27,18 @@ from error_propogation import ErrorPropogation
 
 STREAMFITTER_DEFAULT_SEED = 42
 
+class StreamFitterException(Exception):
+    ...
+
+class WrongNumberOfParamsException(StreamFitterException):
+    ...
+
+class NoReplicatesException(StreamFitterException):
+    ...
+
+class UnevenMatchedXYException(Exception):
+    ...
+
 @dataclass
 class PointAndValue:
     point: float
@@ -123,7 +135,7 @@ def _calculate_monte_carlo_error(fitter, id_xy_data, fits, error_method, noise_l
 
             mc_keys_and_values[fit_key] = xs, mc_data
 
-        fits = _fit_series(mc_keys_and_values, fitter)
+        fits, estimates = _fit_series(mc_keys_and_values, fitter)
 
         averagers = {name: RunningStats() for name in fitter.params}
         mc_calculations = 0
@@ -205,7 +217,7 @@ def fitter(
 
     # TODO: this could be a context manager
     start_time = time.time()
-    fits = _fit_series(id_xy_data, fitter)
+    fits, estimates = _fit_series(id_xy_data, fitter)
 
     monte_carlo_errors, monte_carlo_value_stats, monte_carlo_param_values = _calculate_monte_carlo_error(
         fitter, id_xy_data, fits, error_method, noise_level, cycles
@@ -221,6 +233,7 @@ def fitter(
 
     results = {
         'fits': fits,
+        'estimates': estimates,
         'monte_carlo_errors': monte_carlo_errors,
         'monte_carlo_value_stats': monte_carlo_value_stats,
         'monte_carlo_param_values': monte_carlo_param_values,
@@ -253,9 +266,11 @@ def _fit_series(ids_and_values, fitter):
     jacobian = JacobianWrapper(fitter.function)
 
     fits = {}
+    estimates = {}
     for id, (xs, ys) in ids_and_values.items():
         params = Parameters()
         estimated_parameters_dict = fitter.estimate(xs, ys)
+        estimates[id] = estimated_parameters_dict
         for key, value in estimated_parameters_dict.items():
             params.add(key, value=value)
 
@@ -264,66 +279,4 @@ def _fit_series(ids_and_values, fitter):
 
         fits[id] = out
 
-    return fits
-
-
-class FunctionWrapper:
-    def __init__(self, func):
-        self._func = func
-
-    def __call__(self, pars, xs, data=None):
-        pars = [pars[par] for par in pars]
-        model = self._func(*pars, xs)
-        if data is None:
-            return model
-        return model - data
-
-
-class JacobianWrapper:
-    def __init__(self, func):
-        jac_args = list(range(len(signature(func).parameters) - 1))
-        self._jac = jacfwd(func, jac_args)
-
-    def __call__(self, pars, x, data=None):
-        pars = [pars[par].value for par in pars]
-
-        result = array(self._jac(*pars, x))
-        return result
-
-
-class Relaxation2PointFitter:
-    @staticmethod
-    def estimate(xs, ys):
-        if xs[0] == 0.0:
-            amplitude = ys[0]
-        else:
-            dy = ys[1] - ys[0]
-            dx = xs[1] - xs[0]
-
-            dy_dx = dy / dx
-
-            amplitude = ys[0] - (xs[0] * dy_dx)
-
-        delta_amplitude = ys[0] - ys[-1]
-        delta_amplitude_2 = delta_amplitude / 2
-
-        closest = min(ys, key=lambda x: abs(x - delta_amplitude_2))
-        # index = [i for i, x in enumerate(ys) if x == closest][0]
-        index = where(ys == closest)[0][0]
-
-        x = xs[index]
-        y = ys[index]
-
-        time_constant = -log(y / amplitude) / x
-
-        result = {'amplitude': amplitude, 'time_constant': time_constant.real}
-
-        return result
-
-    @staticmethod
-    def function(amplitude, time_constant, xs):
-        return amplitude * exp(-time_constant * xs)
-
-    @classprop
-    def params(cls):
-        return list(signature(cls.function).parameters.keys())[:-1]
+    return fits, estimates
