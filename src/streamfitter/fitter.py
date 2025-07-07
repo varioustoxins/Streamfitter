@@ -25,6 +25,7 @@ import math
 
 from error_propogation import ErrorPropogation
 
+STREAMFITTER_DEFAULT_SEED = 42
 
 @dataclass
 class PointAndValue:
@@ -185,7 +186,7 @@ def fitter(
     error_method: ErrorPropogation,
     cycles: int,
     noise_level,
-    seed: int,
+    seed: int = STREAMFITTER_DEFAULT_SEED
 ) -> Dict:
     _import_nef_pipelines_or_raise()
 
