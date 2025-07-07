@@ -204,22 +204,23 @@ def td_format(td_object):
 
 
 # this should be build at runtime
-FITTER_EXPONENTIAL_DECAY_2_PAMETER = 'exponential_fitter_2_parameter'
-FITTER_TWO_EXPONENTIAL_DECAYS_2_PAMETER_SHARED_RATE = 'exponential_fitter_2_parameter_shared_rate'
+FUNCTION_EXPONENTIAL_DECAY_2_PAMETER = 'exponential_function_2_parameter'
+FUNCTION_TWO_EXPONENTIAL_DECAYS_2_PAMETER_SHARED_RATE = 'exponential_function_2_parameter_shared_rate'
 
 _FITTERS = {
-    FITTER_EXPONENTIAL_DECAY_2_PAMETER: ExponentialDecay2ParameterFitter,
-    FITTER_TWO_EXPONENTIAL_DECAYS_2_PAMETER_SHARED_RATE: SharedRateExponentialDecay2ParameterFitter,
+    FUNCTION_EXPONENTIAL_DECAY_2_PAMETER: ExponentialDecay2ParameterFitter,
+    FUNCTION_TWO_EXPONENTIAL_DECAYS_2_PAMETER_SHARED_RATE: SharedRateExponentialDecay2ParameterFitter,
 }
 
 
-def get_fitter_names():
+def get_function_names():
     return set(*_FITTERS.values())
 
 
-def get_fitter(name):
-    if name not in get_fitter_names():
-        fitter_names = [f'{i}. {fitter_name}' for i, fitter_name in enumerate(get_fitter_names())]
+def get_function(name):
+    function_names = get_function_names()
+    if name not in function_names:
+        fitter_names = [f'{i}. {fitter_name}' for i, fitter_name in enumerate(function_names)]
         fitter_names = '\n'.join(fitter_names)
         msg = f"""
             the fitter called {name} can't be found, ther available fitters are:
