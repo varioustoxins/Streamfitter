@@ -121,17 +121,18 @@ def _calculate_monte_carlo_error(fitter, id_xy_data, fits, error_method, noise_l
         back_calculated = fitter.function(*fitted_params, id_xy_data[id][0])
 
         mc_keys_and_values = {}
-        for i in range(num_cycles):
-            fit_key = id, i
-            mc_data = back_calculated + normal(0, noise_level, len(xs_as_floats))
+        if num_cycles is not None:
+            for i in range(num_cycles):
+                fit_key = id, i
+                mc_data = back_calculated + normal(0, noise_level, len(xs_as_floats))
 
-            if validate_mc:
-                replicate_values = {}
-                for point, data in zip(xs_as_floats, mc_data):
-                    replicate_values.setdefault(point, []).append(float(data))
-                for replicate in replicate_values.values():
-                    for combination in combinations(replicate, 2):
-                        replicate_averages.add(combination[0] - combination[1])
+                if validate_mc:
+                    replicate_values = {}
+                    for point, data in zip(xs_as_floats, mc_data):
+                        replicate_values.setdefault(point, []).append(float(data))
+                    for replicate in replicate_values.values():
+                        for combination in combinations(replicate, 2):
+                            replicate_averages.add(combination[0] - combination[1])
 
             mc_keys_and_values[fit_key] = xs, mc_data
 
@@ -153,11 +154,12 @@ def _calculate_monte_carlo_error(fitter, id_xy_data, fits, error_method, noise_l
                 for back_calculated, averager in zip(mc_back_calculated, value_stats.values()):
                     averager.add(back_calculated)
 
-        errors = {f'{name}_mc_error': averager.sterr() for name, averager in averagers.items()}
-        mc_fitted_params[id] = {
-            **errors,
-            '%mc_failures': (num_cycles - mc_calculations) / num_cycles * 100,
-        }
+        if num_cycles is not None:
+            errors = {f'{name}_mc_error': averager.sterr() for name, averager in averagers.items()}
+            mc_fitted_params[id] = {
+                **errors,
+                '%mc_failures': (num_cycles - mc_calculations) / num_cycles * 100,
+            }
 
     if validate_mc:
         print(
