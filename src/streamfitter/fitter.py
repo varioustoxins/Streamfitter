@@ -195,7 +195,6 @@ class NoNEFPipeslinesError(Exception):
         super().__init__('nef_pipelines was not imported, stream fitter depends on NEF-Pipelines, did you install it?')
 
 
-def fitter(
 def fit(
     id_xy_data,
     error_method: ErrorPropogation,
