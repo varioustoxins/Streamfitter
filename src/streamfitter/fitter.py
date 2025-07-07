@@ -196,6 +196,7 @@ class NoNEFPipeslinesError(Exception):
 
 
 def fitter(
+def fit(
     id_xy_data,
     error_method: ErrorPropogation,
     cycles: int,
