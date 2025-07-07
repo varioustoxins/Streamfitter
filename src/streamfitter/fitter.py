@@ -208,8 +208,6 @@ def fitter(
 
     numpy_random.seed(seed)
 
-    results = []
-
     replicate_noise_level, stderr, num_replicates = _get_noise_from_duplicated_values(id_xy_data)
 
     noise_source = 'cli' if noise_level else 'replicates'
