@@ -20,7 +20,7 @@ from streamfitter import __version__ as streamfitter_version
 
 import math
 
-from error_propogation import ErrorPropogation
+from .error_propogation import ErrorPropogation
 
 STREAMFITTER_DEFAULT_SEED = 42
 
